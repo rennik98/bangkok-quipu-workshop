@@ -112,6 +112,9 @@
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--amber); letter-spacing: 1px; background: rgba(255,176,0,0.05); }
   tr:hover td { background: rgba(57,255,110,0.07); }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--green); }
+  .sort-arrow { display: inline-block; width: 10px; font-size: 9px; }
   .tag-contact { color: var(--green); font-weight: bold; text-shadow: 0 0 6px var(--green); }
   .tag-noise { color: #4f7a5d; }
   .source-head { color: var(--amber); font-size: 12px; letter-spacing: 1px; margin: 14px 0 4px; }
@@ -239,7 +242,11 @@
       <div class="panel-title">// CONFIRMED CONTACTS</div>
       <table id="resultsTable" style="display:none">
         <thead>
-          <tr><th>SOURCE</th><th>BRG ID</th><th>BRG (DEG)</th><th>BRG (RAD)</th><th>RNG (UNITS)</th></tr>
+          <tr>
+            <th class="sortable" data-sort="turtle">SOURCE <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="cequeId">BRG ID <span class="sort-arrow"></span></th>
+            <th>BRG (DEG)</th><th>BRG (RAD)</th><th>RNG (UNITS)</th>
+          </tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -381,6 +388,43 @@ function renderTable(results, cequeTable) {
 
 let lastResults = [];
 let lastCequeTable = null;
+let sortKey = null; // 'turtle' | 'cequeId' | null (encounter order)
+let sortDir = 1; // 1 = ascending, -1 = descending
+
+// Turtle IDs are "T1", "T2", ... "T10"; sort numerically rather than
+// lexically so T2 comes before T10.
+function turtleNum(id) {
+  const m = /\d+/.exec(id);
+  return m ? parseInt(m[0], 10) : 0;
+}
+
+function sortResults(results) {
+  if (!sortKey) return results;
+  const sorted = [...results];
+  sorted.sort((a, b) => {
+    const av = sortKey === 'turtle' ? turtleNum(a.turtle) : a.cequeId;
+    const bv = sortKey === 'turtle' ? turtleNum(b.turtle) : b.cequeId;
+    return (av - bv) * sortDir;
+  });
+  return sorted;
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('#resultsTable th.sortable').forEach((th) => {
+    th.querySelector('.sort-arrow').textContent =
+      th.dataset.sort === sortKey ? (sortDir === 1 ? '▲' : '▼') : '';
+  });
+}
+
+document.querySelectorAll('#resultsTable th.sortable').forEach((th) => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    sortDir = sortKey === key ? sortDir * -1 : 1;
+    sortKey = key;
+    updateSortIndicators();
+    renderTable(sortResults(lastResults), lastCequeTable);
+  });
+});
 
 // Pipeline stages, in algorithm order: parse the cords, decode the
 // obfuscation, apply the checksum, locate the bearing/range, plot it.
@@ -431,6 +475,8 @@ document.getElementById('solveBtn').addEventListener('click', async () => {
   // the full per-source breakdown.
   setStage('checksum');
   const genuine = records.filter((r) => r.genuine);
+  lastResults = genuine;
+  lastCequeTable = cequeTable;
   renderTurtleReport(turtles, records, cequeTable);
   renderSummary(records);
   await sleep(STAGE_DELAY_MS);
@@ -438,13 +484,11 @@ document.getElementById('solveBtn').addEventListener('click', async () => {
   // Stage 4: LOCATE — look up each surviving Ceque_ID's bearing and pair it
   // with its range to form the final polar fix.
   setStage('locate');
-  renderTable(genuine, cequeTable);
+  renderTable(sortResults(lastResults), lastCequeTable);
   await sleep(STAGE_DELAY_MS);
 
   // Stage 5: PLOT — render the confirmed contacts on the tactical display.
   setStage('plot');
-  lastResults = genuine;
-  lastCequeTable = cequeTable;
   document.getElementById('plot').innerHTML = renderRadarSVG(genuine, cequeTable) + '<div class="radar-sweep"></div>';
   document.getElementById('exportBtn').disabled = genuine.length === 0;
 
