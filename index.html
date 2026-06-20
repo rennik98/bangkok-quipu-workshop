@@ -116,6 +116,13 @@
   .tag-noise { color: #4f7a5d; }
   .source-head { color: var(--amber); font-size: 12px; letter-spacing: 1px; margin: 14px 0 4px; }
 
+  .summary-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .summary-stat { flex: 1; min-width: 140px; border: 1px solid var(--green-dim); padding: 12px 14px; text-align: center; background: rgba(57,255,110,0.03); }
+  .summary-num { font-size: 30px; font-weight: bold; letter-spacing: 1px; }
+  .summary-label { font-size: 11px; color: var(--green-dim); letter-spacing: 1px; margin-top: 4px; }
+  .summary-stat.contact .summary-num { color: var(--green); text-shadow: 0 0 8px var(--green); }
+  .summary-stat.noise .summary-num { color: #4f7a5d; }
+
   .radar-wrap { position: relative; width: 720px; max-width: 100%; aspect-ratio: 1 / 1; margin: 0 auto; }
   .radar-wrap svg { display: block; width: 100%; height: 100%; }
   /* Fullscreen: the Fullscreen spec's UA stylesheet pins the element to
@@ -210,8 +217,21 @@
 
     <div class="panel">
       <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
-      <div class="panel-title">// RAW SIGINT ANALYSIS — PER SOURCE</div>
-      <div id="turtleReport"></div>
+      <div class="panel-title">// SIGNAL SUMMARY</div>
+      <div class="summary-row">
+        <div class="summary-stat">
+          <div class="summary-num" id="sumTotal">0</div>
+          <div class="summary-label">TOTAL SIGNALS</div>
+        </div>
+        <div class="summary-stat contact">
+          <div class="summary-num" id="sumContact">0</div>
+          <div class="summary-label">CONTACTS</div>
+        </div>
+        <div class="summary-stat noise">
+          <div class="summary-num" id="sumNoise">0</div>
+          <div class="summary-label">NOISE</div>
+        </div>
+      </div>
     </div>
 
     <div class="panel">
@@ -232,6 +252,12 @@
         <button id="fullscreenBtn">⛶ FULLSCREEN</button>
       </div>
       <div id="plot" class="radar-wrap"></div>
+    </div>
+
+    <div class="panel">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <div class="panel-title">// RAW SIGINT ANALYSIS — PER SOURCE</div>
+      <div id="turtleReport"></div>
     </div>
   </div>
 
@@ -332,6 +358,14 @@ function renderTurtleReport(turtles, records, cequeTable) {
   document.getElementById('turtleReport').innerHTML = blocks.join('');
 }
 
+function renderSummary(records) {
+  const contactCount = records.filter((r) => r.genuine).length;
+  const noiseCount = records.length - contactCount;
+  document.getElementById('sumTotal').textContent = records.length;
+  document.getElementById('sumContact').textContent = contactCount;
+  document.getElementById('sumNoise').textContent = noiseCount;
+}
+
 function renderTable(results, cequeTable) {
   const tbody = document.querySelector('#resultsTable tbody');
   tbody.innerHTML = '';
@@ -398,6 +432,7 @@ document.getElementById('solveBtn').addEventListener('click', async () => {
   setStage('checksum');
   const genuine = records.filter((r) => r.genuine);
   renderTurtleReport(turtles, records, cequeTable);
+  renderSummary(records);
   await sleep(STAGE_DELAY_MS);
 
   // Stage 4: LOCATE — look up each surviving Ceque_ID's bearing and pair it
