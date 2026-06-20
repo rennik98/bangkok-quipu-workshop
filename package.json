@@ -1,0 +1,10 @@
+{
+  "name": "bangkok-quipu-workshop",
+  "version": "1.0.0",
+  "description": "Quipu of Conquest decoder: decode quipu knot records into Spanish camp locations.",
+  "main": "decoder.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

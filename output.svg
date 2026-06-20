@@ -98,5 +98,7 @@
 <text x="458" y="442" font-size="11" fill="#333">Cusco</text>
 <circle cx="604.2" cy="191.3" r="6" fill="#d62728"/>
 <text x="613.2" y="182.3" font-size="12" fill="#d62728" font-weight="bold">T3 CequeID=7 30.8° r=502</text>
+<circle cx="406.7" cy="488.9" r="6" fill="#d62728"/>
+<text x="415.7" y="479.9" font-size="12" fill="#d62728" font-weight="bold">T3 CequeID=30 228° r=97</text>
 <text x="10" y="20" font-size="14" fill="#333">Decoded Spanish camp locations relative to Cusco</text>
 </svg>
