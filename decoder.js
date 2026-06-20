@@ -1,16 +1,23 @@
 // Quipu of Conquest — shared decode/render logic.
 // Pure and environment-agnostic: used by solve.js (Node CLI) and index.html (browser).
 
+// The CSVs are exported from a fixed 6-column spreadsheet, so short rows
+// (e.g. "P,2,6,,,") have empty padding fields on the right. Strip only the
+// trailing empties so interior "0" digits (real knot values) are preserved.
 function trimTrailingEmpty(fields) {
   const out = fields.map((f) => f.trim());
   while (out.length && out[out.length - 1] === '') out.pop();
   return out;
 }
 
+// Each knot on a cord is one digit field (e.g. ['0','0','6','8','4'] -> 684).
+// Works regardless of digit count, so it survives hidden tests with wider cords.
 function digitsToNumber(fields) {
   return parseInt(fields.join(''), 10);
 }
 
+// True mathematical modulo (always in [0, m)). Needed because Real_Distance
+// can be negative for decoy records, and JS's % keeps the sign of n.
 function mod(n, m) {
   return ((n % m) + m) % m;
 }
@@ -49,20 +56,30 @@ function parseInput(text) {
     if (fields.length === 0) continue;
 
     if (section === 'TURTLE_DATA') {
+      // Each turtle carries its own obfuscation key (marginal scutes) and
+      // checksum key (plastron scutes) used below.
       const [id, marginal, plastron] = fields;
       turtles.set(id, { marginal: Number(marginal), plastron: Number(plastron) });
     } else if (section === 'QUIPU_RECORDS') {
       if (fields.length === 1 && /^T\d+$/.test(fields[0])) {
+        // "T<n>" line: switch context to a new turtle's block of cords.
         currentTurtle = fields[0];
         currentCequeId = null;
       } else if (fields[0] === 'P') {
+        // Pendant (main) cord: its digits are the Ceque_ID, i.e. which of the
+        // 41 fixed bearing lines the following subsidiary cords are along.
         currentCequeId = digitsToNumber(fields.slice(1));
       } else if (fields[0] === 'S') {
+        // Subsidiary cord: its digits are the obfuscated Raw_Distance for one
+        // candidate camp on the current pendant's bearing line.
         const rawDistance = digitsToNumber(fields.slice(1));
         const turtle = turtles.get(currentTurtle);
+        // Undo the obfuscation: Raw_Distance = Ceque_ID * Marginal_Scutes + Real_Distance.
         const realDistance = rawDistance - currentCequeId * turtle.marginal;
         const requiredMod = turtle.plastron % 5;
         const actualMod = mod(realDistance, 5);
+        // Checksum rule: genuine data satisfies Real_Distance % 5 == Plastron_Scutes % 5.
+        // Anything else is planted decoy data and must be discarded, not just flagged.
         records.push({
           turtle: currentTurtle,
           cequeId: currentCequeId,
@@ -79,6 +96,8 @@ function parseInput(text) {
   return { turtles, records };
 }
 
+// Pick a "nice" ring spacing (1/2/5 x 10^n) so distance rings land on round
+// numbers instead of an arbitrary fraction of the max distance.
 function niceRingStep(maxVal, targetRings) {
   if (maxVal <= 0) return 1;
   const raw = maxVal / targetRings;
@@ -88,6 +107,8 @@ function niceRingStep(maxVal, targetRings) {
   return nice * magnitude;
 }
 
+// Polar (bearing in degrees, range) -> screen XY, with 0deg = up/north and
+// angle increasing clockwise, matching the Ceque system's compass convention.
 function polarToXY(cx, cy, angleDeg, r) {
   const theta = (angleDeg * Math.PI) / 180;
   return { x: cx + r * Math.sin(theta), y: cy - r * Math.cos(theta) };

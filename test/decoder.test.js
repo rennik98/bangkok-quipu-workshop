@@ -147,17 +147,18 @@ test('parseInput: realDistance = raw - cequeId*marginal and required mod', () =>
   assert.equal(first.genuine, false);
 });
 
-test('parseInput: sample yields exactly the two T3 genuine records', () => {
+test('parseInput: sample yields exactly the one T3 genuine record', () => {
   const { records } = parseInput(sampleText);
   const genuine = records.filter((r) => r.genuine).map((r) => ({
     turtle: r.turtle,
     cequeId: r.cequeId,
     realDistance: r.realDistance,
   }));
-  assert.deepEqual(genuine, [
-    { turtle: 'T3', cequeId: 7, realDistance: 502 },
-    { turtle: 'T3', cequeId: 30, realDistance: 97 },
-  ]);
+  // Ceque_ID=30's subsidiary cord raw value is 878 here (878-30*26=98,
+  // 98%5=3 != Plastron(12)%5=2 -> decoy). A workshop slide's worked example
+  // uses 877 instead (-> 97, mod5=2 -> genuine), which would add a second
+  // contact; the data file is authoritative for this test.
+  assert.deepEqual(genuine, [{ turtle: 'T3', cequeId: 7, realDistance: 502 }]);
 });
 
 test('parseInput: T1 and T2 in sample are decoy-only', () => {
@@ -350,16 +351,13 @@ function tmpSvg() {
   return path.join(os.tmpdir(), `quipu-test-${process.pid}-${Math.random().toString(36).slice(2)}.svg`);
 }
 
-test('CLI: sample input reports the two genuine camps and writes an SVG', () => {
+test('CLI: sample input reports the one genuine camp and writes an SVG', () => {
   const out = tmpSvg();
   try {
     const stdout = runCli([path.join(ROOT, 'sample_input.csv'), path.join(ROOT, 'ceque.csv'), out]);
     assert.ok(stdout.includes('GENUINE: CequeID=7 Angle=30.8° Distance=502'));
     const finalLines = stdout.split('\n').filter((l) => l.startsWith('Turtle='));
-    assert.deepEqual(finalLines, [
-      'Turtle=T3 CequeID=7 Angle=30.8 Distance=502',
-      'Turtle=T3 CequeID=30 Angle=228 Distance=97',
-    ]);
+    assert.deepEqual(finalLines, ['Turtle=T3 CequeID=7 Angle=30.8 Distance=502']);
     assert.ok(fs.readFileSync(out, 'utf8').startsWith('<svg'));
   } finally {
     fs.rmSync(out, { force: true });
